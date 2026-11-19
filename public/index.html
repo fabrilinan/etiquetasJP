@@ -188,13 +188,31 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--ink)}
   .bar .btn.ghost{padding:11px 12px}
   .filebar .btn{padding:10px 4px;font-size:12.5px}
 }
+/* ---- v4: nube ---- */
+.cstatus{font-size:12.5px;color:var(--mut);margin:-4px 2px 12px;display:flex;align-items:center;gap:7px;min-height:18px}
+.cstatus b{color:var(--ink)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.dot.ok{background:#2a9d4b}.dot.warn{background:#e8a317}.dot.off{background:#c9c1b3}
+.esp{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px}
+.esp small{width:100%;color:var(--mut);font-size:12px}
+.esp input{flex:1;min-width:120px;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;font:inherit;font-size:16px}
+.esp .btn{padding:9px 14px}
+.crow .sw{width:34px;height:34px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.12),inset 0 0 0 2px #fff}
+.crow .pv b{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow.cur{border-color:var(--acc);background:#fff9f5}
+.crow .del{border:0;background:none;font-size:16px;cursor:pointer;padding:6px 8px;border-radius:9px;color:var(--mut);white-space:nowrap}
+.crow .del:hover{background:var(--soft)}
+.crow .del.arm{background:#b4321f;color:#fff;font-size:12.5px;font-weight:700}
+.cfoot{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;padding:10px 18px 16px;border-top:1px solid var(--line);font-size:13px}
+@media (max-width:900px){.cfoot{padding-bottom:max(16px,env(safe-area-inset-bottom))}}
+.liblist{align-content:start}
 </style>
 </head>
 <body>
 <header class="top">
   <div class="brand">
     <div class="mark"><svg viewBox="0 0 24 24" width="21" height="21" fill="none"><rect x="3.5" y="3.5" width="17" height="8.5" rx="1.5" stroke="#fff" stroke-width="2"/><circle cx="12" cy="7.2" r="1.4" fill="#fff"/><path d="M5.5 12.5l1 8h11l1-8" stroke="#ff5a1f" stroke-width="2" stroke-linejoin="round"/></svg></div>
-    <div><b>ETIQUETAS<span class="ver">v3.1</span></b><small>Header cards para bolsas de celofán</small></div>
+    <div><b>ETIQUETAS<span class="ver">v4</span></b><small>Header cards para bolsas de celofán</small></div>
   </div>
   <div class="spacer"></div>
   <div class="dl-desk">
@@ -224,10 +242,11 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--ink)}
 
   <section class="controls">
     <div class="filebar">
-      <label class="btn" title="Abrir un diseño guardado (.json)"><input type="file" id="openFile" accept=".json,application/json">📂 Abrir</label>
-      <button class="btn" id="saveDesign" title="Guardar el diseño para compartirlo">💾 Guardar</button>
-      <button class="btn danger" id="resetBtn">↺ Restablecer</button>
+      <button class="btn" id="openCloud" title="Ver los diseños guardados">☁️ Mis diseños</button>
+      <button class="btn" id="saveCloud" title="Guardar en la nube">💾 Guardar</button>
+      <button class="btn danger" id="resetBtn" title="Empezar un diseño nuevo">↺ Nuevo</button>
     </div>
+    <div class="cstatus" id="cstatus"></div>
 
     <details class="sec" open>
       <summary><span class="num">1</span>Tamaño<span class="chev"></span></summary>
@@ -361,6 +380,20 @@ input[type=text]:focus,input[type=number]:focus{border-color:var(--ink)}
       </div>
     </div>
     <div class="liblist" id="libList"></div>
+  </div>
+</div>
+<div class="modal" id="cloud" hidden>
+  <div class="sheet" role="dialog" aria-label="Mis diseños">
+    <div class="sheet-head"><div><b>Mis diseños</b><br><span>Guardados en la nube · se ven desde cualquier celu o compu</span></div><button class="close" id="cloudClose" aria-label="Cerrar">✕</button></div>
+    <div class="libtools">
+      <div class="esp" id="espBox"></div>
+      <button class="btn primary" id="saveNew">＋ Guardar el actual como diseño nuevo</button>
+    </div>
+    <div class="liblist" id="cloudList"></div>
+    <div class="cfoot">
+      <label class="linkbtn">Importar archivo .json<input type="file" id="openFile" accept=".json,application/json" hidden></label>
+      <button class="linkbtn" id="exportFile">Exportar como archivo</button>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -1112,7 +1145,7 @@ function render(){
     (P.mixed?'Hoja armada con los diseños de la lista (paso 6). ':'')+'Esto es lo que sale en el PDF. Imprimir al 100 %, sin escalar.';
   $('#t3f').style.display=o.fold?'':'none';
   $$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.view===S.view));
-  satCheck();save();pushHist();
+  satCheck();save();pushHist();updCloudStatus();
 }
 $('#chips').addEventListener('click',e=>{const b=e.target.closest('[data-pg]');if(!b)return;pageIdx+=+b.dataset.pg;render();});
 
@@ -1179,9 +1212,11 @@ document.addEventListener('keydown',e=>{
 let resetArm=0;
 $('#resetBtn').addEventListener('click',()=>{
   const b=$('#resetBtn');
-  if(!resetArm){resetArm=setTimeout(()=>{resetArm=0;b.textContent='↺ Restablecer';},3000);b.textContent='¿Seguro? Tocá de nuevo';return;}
-  clearTimeout(resetArm);resetArm=0;b.textContent='↺ Restablecer';
-  const v=S.view;S=Object.assign({},DEF,{view:v});logo=null;sticker=null;syncUI();render();toast('Diseño restablecido · podés deshacer con ↶');
+  if(!resetArm){resetArm=setTimeout(()=>{resetArm=0;b.textContent='↺ Nuevo';},3000);b.textContent='¿Seguro? Tocá de nuevo';return;}
+  clearTimeout(resetArm);resetArm=0;b.textContent='↺ Nuevo';
+  const v=S.view;S=Object.assign({},DEF,{view:v});logo=null;sticker=null;items=[];
+  cloudId=null;cloudName='';cloudSavedKey='';saveCloudState();
+  syncUI();render();toast('Diseño nuevo · lo anterior sigue en Mis diseños si lo guardaste');
 });
 
 /* ---------- tipografías: grilla, subir, biblioteca ---------- */
@@ -1394,27 +1429,116 @@ function load(){
   const it=get('etq2_items');if(Array.isArray(it))items=it.filter(x=>x&&x.S);
 }
 
-/* ---------- guardar / abrir diseño (archivo para compartir) ---------- */
-$('#saveDesign').addEventListener('click',async()=>{
+/* ---------- diseños: nube + archivo ---------- */
+function designPayload(){
   const fonts={};usedFontKeys().forEach(k=>{if(CF[k])fonts[k]=CF[k];});
   const st=Object.assign({},S);delete st.view;
-  const data=JSON.stringify({app:'etiquetas',v:3,S:st,logo,sticker,items,fonts});
-  await deliver(`diseno-${slug(S.t1)||'etiqueta'}.json`,new Blob([data],{type:'application/json'}));
-});
+  return {app:'etiquetas',v:3,name:S.t1||'Sin título',S:st,logo,sticker,items,fonts};
+}
+async function applyDesign(d){
+  if(!d||d.app!=='etiquetas'||!d.S) throw new Error('formato');
+  for(const [k,ft] of Object.entries(d.fonts||{})){if(!CF[k]&&ft&&ft.b64){try{await registerFont(k,ft);}catch(err){}}}
+  saveFonts();
+  const v=S.view;S=Object.assign({},DEF,d.S,{view:v});
+  logo=d.logo&&d.logo.src?d.logo:null;sticker=d.sticker&&d.sticker.src?d.sticker:null;
+  items=Array.isArray(d.items)?d.items.filter(x=>x&&x.S):[];
+  if(!FONTS[S.font]&&!CF[S.font])S.font='anton';if(!FONTS[S.font2]&&!CF[S.font2])S.font2='anton';
+  syncUI();render();
+}
+$('#exportFile').addEventListener('click',()=>deliver(`diseno-${slug(S.t1)||'etiqueta'}.json`,new Blob([JSON.stringify(designPayload())],{type:'application/json'})));
 $('#openFile').addEventListener('change',async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
-  try{
-    const d=JSON.parse(await f.text());
-    if(!d||d.app!=='etiquetas'||!d.S) throw new Error('formato');
-    for(const [k,ft] of Object.entries(d.fonts||{})){if(!CF[k]&&ft&&ft.b64){try{await registerFont(k,ft);}catch(err){}}}
-    saveFonts();
-    const v=S.view;S=Object.assign({},DEF,d.S,{view:v});
-    logo=d.logo&&d.logo.src?d.logo:null;sticker=d.sticker&&d.sticker.src?d.sticker:null;
-    items=Array.isArray(d.items)?d.items.filter(x=>x&&x.S):[];
-    if(!FONTS[S.font]&&!CF[S.font])S.font='anton';if(!FONTS[S.font2]&&!CF[S.font2])S.font2='anton';
-    syncUI();render();toast('Diseño abierto: '+f.name);
-  }catch(err){toast('Ese archivo no es un diseño de este generador.');}
+  try{await applyDesign(JSON.parse(await f.text()));cloudId=null;cloudSavedKey='';saveCloudState();updCloudStatus();closeCloud();toast('Diseño importado: '+f.name+' · tocá Guardar para subirlo a la nube');}
+  catch(err){toast('Ese archivo no es un diseño de este generador.');}
 });
+
+/* nube (función de Netlify: /api/disenos) */
+const API='/api/disenos';
+let espacio='equipo', cloudId=null, cloudName='', cloudSavedKey='', cloudItems=[];
+try{espacio=localStorage.getItem('etq2_esp')||'equipo';cloudId=localStorage.getItem('etq2_cid')||null;cloudName=localStorage.getItem('etq2_cname')||'';cloudSavedKey=localStorage.getItem('etq2_ckey')||'';}catch(e){}
+function saveCloudState(){try{localStorage.setItem('etq2_esp',espacio);cloudId?localStorage.setItem('etq2_cid',cloudId):localStorage.removeItem('etq2_cid');localStorage.setItem('etq2_cname',cloudName||'');localStorage.setItem('etq2_ckey',cloudSavedKey||'');}catch(e){}}
+const designKey=()=>snapKey()+'|'+JSON.stringify(items.map(i=>[i.qty,i.S.t1,i.S.W,i.S.H]));
+const newId=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>(b%36).toString(36)).join('')+Date.now().toString(36).slice(-4);
+async function api(path,opt={}){
+  let r;
+  try{r=await fetch(API+path+(path.includes('?')?'&':'?')+'e='+encodeURIComponent(espacio),Object.assign({cache:'no-store'},opt));}
+  catch(e){throw new Error('Sin conexión con la nube. Abrí la herramienta desde etiquetasjp.netlify.app con internet.');}
+  let d=null;try{d=await r.json();}catch(e){}
+  if(!r.ok) throw new Error((d&&d.error)||(r.status===404&&!path?'La nube solo funciona desde etiquetasjp.netlify.app':'Error '+r.status));
+  return d;
+}
+function ago(t){
+  if(!t) return '';const s=(Date.now()-t)/1000;
+  if(s<60) return 'recién';if(s<3600) return `hace ${Math.round(s/60)} min`;if(s<86400) return `hace ${Math.round(s/3600)} h`;
+  const d=Math.round(s/86400);return d===1?'ayer':`hace ${d} días`;
+}
+function updCloudStatus(){
+  const el=$('#cstatus');
+  if(!cloudId){el.innerHTML='<i class="dot off"></i>Diseño sin guardar en la nube';return;}
+  const dirty=designKey()!==cloudSavedKey;
+  el.innerHTML=dirty?`<i class="dot warn"></i><b>${esc(cloudName)}</b> · cambios sin guardar`:`<i class="dot ok"></i><b>${esc(cloudName)}</b> · guardado en la nube`;
+}
+async function saveToCloud(asNew){
+  const payload=designPayload(), body=JSON.stringify(payload);
+  if(body.length>5.7e6){toast('El diseño es muy pesado para la nube (logo, foto o fuentes muy grandes). Probá con imágenes más chicas.');return;}
+  const id=(!asNew&&cloudId)||newId();
+  const btns=[$('#saveCloud'),$('#saveNew')];btns.forEach(b=>b.disabled=true);
+  try{
+    const r=await api('/'+id,{method:'PUT',headers:{'content-type':'application/json'},body});
+    cloudId=id;cloudName=r.name||payload.name;cloudSavedKey=designKey();saveCloudState();updCloudStatus();
+    toast(asNew?'Guardado como diseño nuevo ☁️':'Guardado en la nube ☁️');
+    if(!$('#cloud').hidden) renderCloud(true);
+  }catch(e){toast(e.message);}
+  finally{btns.forEach(b=>b.disabled=false);}
+}
+$('#saveCloud').addEventListener('click',()=>saveToCloud(false));
+$('#saveNew').addEventListener('click',()=>saveToCloud(true));
+function renderEsp(edit){
+  const b=$('#espBox');
+  if(edit){
+    b.innerHTML=`<span>Espacio:</span><input id="espIn" value="${esc(espacio)}" maxlength="40" autocomplete="off"><button class="btn primary" id="espOk">OK</button>`;
+    const i=$('#espIn');i.focus();i.select();
+    const ok=()=>{const v=slug(i.value).slice(0,40);if(!v){toast('Escribí un nombre');return;}if(v!==espacio){espacio=v;cloudId=null;cloudName='';cloudSavedKey='';saveCloudState();updCloudStatus();}renderEsp(false);renderCloud(true);};
+    $('#espOk').addEventListener('click',ok);i.addEventListener('keydown',e=>{if(e.key==='Enter')ok();});
+  } else {
+    b.innerHTML=`<span>Espacio: <b>${esc(espacio)}</b></span><button class="linkbtn" id="espCh">cambiar</button><small>Todos los que usen el mismo espacio ven los mismos diseños.</small>`;
+    $('#espCh').addEventListener('click',()=>renderEsp(true));
+  }
+}
+async function renderCloud(reload){
+  const list=$('#cloudList');
+  if(reload||!cloudItems.length){
+    list.innerHTML='<div class="libmsg">Cargando…</div>';
+    try{cloudItems=(await api('')).items||[];}
+    catch(e){list.innerHTML=`<div class="libmsg">${esc(e.message)}</div>`;return;}
+  }
+  if(!cloudItems.length){list.innerHTML='<div class="libmsg">Todavía no hay diseños en este espacio.<br>Tocá <b>Guardar</b> y aparecen acá.</div>';return;}
+  list.innerHTML=cloudItems.map(it=>`<div class="frow crow${it.id===cloudId?' cur':''}" data-id="${esc(it.id)}">
+    <i class="sw" style="background:conic-gradient(${esc(it.a1||'#999')} 0 18%,${esc(it.a2||'#ccc')} 0 30%,${esc(it.bg||'#222')} 0 82%,${esc(it.tx||'#fff')} 0 100%)"></i>
+    <div class="pv"><b>${esc(it.name||'Sin título')}</b><small>${it.w}×${it.h} mm${it.fold?' · doble':''}${it.items?` · hoja con ${it.items}`:''} · ${ago(it.updated)}${it.id===cloudId?' · <em>abierto</em>':''}</small></div>
+    <button class="btn primary" data-open>Abrir</button><button class="del" data-del aria-label="Borrar">🗑</button></div>`).join('');
+}
+$('#cloudList').addEventListener('click',async e=>{
+  const row=e.target.closest('.crow');if(!row)return;const id=row.dataset.id;
+  if(e.target.closest('[data-del]')){
+    const b=e.target.closest('[data-del]');
+    if(!b.dataset.arm){b.dataset.arm=1;b.textContent='¿Borrar?';b.classList.add('arm');setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.textContent='🗑';b.classList.remove('arm');}},3000);return;}
+    try{await api('/'+id,{method:'DELETE'});cloudItems=cloudItems.filter(x=>x.id!==id);if(id===cloudId){cloudId=null;cloudName='';cloudSavedKey='';saveCloudState();updCloudStatus();}renderCloud(false);toast('Diseño borrado');}
+    catch(err){toast(err.message);}
+    return;
+  }
+  if(e.target.closest('[data-open]')){
+    const b=e.target.closest('[data-open]');b.disabled=true;b.textContent='…';
+    try{const d=await api('/'+id);await applyDesign(d);cloudId=id;cloudName=d.name||(d.S&&d.S.t1)||'Sin título';cloudSavedKey=designKey();saveCloudState();updCloudStatus();closeCloud();toast('Abierto: '+cloudName);}
+    catch(err){toast(err.message);b.disabled=false;b.textContent='Abrir';}
+  }
+});
+function openCloud(){$('#cloud').hidden=false;document.body.style.overflow='hidden';renderEsp(false);renderCloud(true);}
+function closeCloud(){$('#cloud').hidden=true;document.body.style.overflow='';}
+$('#openCloud').addEventListener('click',openCloud);
+$('#cloudClose').addEventListener('click',closeCloud);
+$('#cloud').addEventListener('click',e=>{if(e.target.id==='cloud')closeCloud();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#cloud').hidden)closeCloud();});
 
 /* toast */
 let tt=0;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),3000);}
